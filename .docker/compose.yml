@@ -1,0 +1,95 @@
+version: '2'
+
+services:
+
+  app-data:
+    container_name: dev_app_data
+    build: nginx
+    volumes:
+      - ..:/www
+    command: /bin/true
+
+  nginx:
+    container_name: dev_nginx
+    build: nginx
+    volumes_from:
+      - app-data
+    networks:
+      - backend
+    depends_on:
+      - php-fpm
+
+  php-fpm:
+    container_name: dev_php_fpm
+    build: php-fpm
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes_from:
+      - app-data
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - redis-cache
+
+  db-data:
+    container_name: dev_db_data
+    image: percona:latest
+    volumes:
+      - /var/lib/mysql
+    command: /bin/true
+
+  db:
+    container_name: dev_percona_db
+    image: percona:latest
+    ports:
+      - "3306:3306"
+    depends_on:
+      - db-data
+    volumes_from:
+      - db-data
+    environment:
+      - MYSQL_ROOT_PASSWORD=dev
+      - MYSQL_DATABASE=magento
+      - MYSQL_USER=dev
+      - MYSQL_PASSWORD=dev
+    networks:
+      - backend
+      - frontend
+
+  elastic-data:
+    container_name: dev_elastic_data
+    build: elasticsearch
+    volumes:
+      - /usr/share/elasticsearch/data
+    command: /bin/true
+
+  elastic:
+    container_name: dev_elasticsearch
+    build: elasticsearch
+    volumes_from:
+      - elastic-data
+    networks:
+      - backend
+
+  varnish:
+    container_name: dev_varnish
+    build: varnish
+    ports:
+      - "80:80"
+    networks:
+      - backend
+      - frontend
+    depends_on:
+      - nginx
+
+  redis-cache:
+    container_name: dev_redis_cache
+    image: redis
+    networks:
+      - backend
+
+networks:
+  backend:
+  frontend:
